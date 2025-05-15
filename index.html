@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<title>🧠 Ой тогтоолтын тоглоом (Сайжруулсан)</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #2c3e50;
+    color: #ecf0f1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 {
+    margin-bottom: 10px;
+  }
+  #settings {
+    margin-bottom: 15px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  label {
+    font-weight: bold;
+  }
+  select, input[type="text"] {
+    padding: 5px;
+    border-radius: 5px;
+    border: none;
+    font-size: 16px;
+  }
+  #status {
+    margin-bottom: 15px;
+    font-size: 18px;
+  }
+  #game {
+    background: #34495e;
+    border-radius: 10px;
+    padding: 15px;
+    display: grid;
+    grid-gap: 15px;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+  .card {
+    background: #2c3e50;
+    border-radius: 10px;
+    height: 80px;
+    width: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    transition: background 0.3s;
+    overflow: hidden;
+  }
+  .card img {
+    width: 60%;
+    height: 60%;
+    object-fit: contain;
+    display: none;
+  }
+  .card.flipped img, .card.matched img {
+    display: block;
+  }
+  .card.flipped, .card.matched {
+    background: #27ae60;
+    cursor: default;
+    box-shadow: 0 0 15px #2ecc71;
+  }
+  #controls {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: none;
+    background-color: #00b894;
+    color: white;
+    cursor: pointer;
+    min-width: 130px;
+  }
+  button:disabled {
+    background-color: #7f8c8d;
+    cursor: not-allowed;
+  }
+  #timer, #score, #level {
+    font-weight: bold;
+  }
+  /* Popup styles */
+  #popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: #34495e;
+    padding: 30px 40px;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    color: #2ecc71;
+    font-size: 22px;
+    font-weight: bold;
+    z-index: 100;
+    text-align: center;
+    white-space: pre-line;
+    transition: transform 0.3s ease-in-out;
+    user-select: none;
+  }
+  #popup.show {
+    transform: translate(-50%, -50%) scale(1);
+  }
+</style>
+</head>
+<body>
+
+<h1>🧠 Ой тогтоолтын тоглоом</h1>
+
+<div id="settings">
+  <div>
+    Таны нэр: <input type="text" id="username" placeholder="Нэрээ бичнэ үү">
+  </div>
+  <div>
+    Тоглоомын хэмжээ:
+    <select id="gameSizeSelect">
+      <option value="8" selected>4 x 2 (8 карт)</option>
+      <option value="16">4 x 4 (16 карт)</option>
+      <option value="24">6 x 4 (24 карт)</option>
+    </select>
+  </div>
+</div>
+
+<div id="status">
+  <span id="level">Түвшин: 1</span> |
+  <span id="score">Оноо: 0</span> |
+  <span id="timer">Цаг: 60 сек</span>
+</div>
+
+<div id="game"></div>
+
+<div id="controls">
+  <button id="startBtn">Тоглоом эхлүүлэх</button>
+  <button id="pauseBtn" disabled>Түр завсарлах</button>
+  <button id="resumeBtn" disabled>Үргэлжлүүлэх</button>
+</div>
+
+<audio id="bgMusic" loop preload="auto" src="https://cdn.pixabay.com/download/audio/2021/11/06/audio_76bbd90c21.mp3?filename=happy-upbeat-11295.mp3"></audio>
+<audio id="correctSound" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
+<audio id="wrongSound" src="https://www.soundjay.com/button/beep-10.wav" preload="auto"></audio>
+
+<div id="popup"></div>
+
+<script>
+  // Зурагтай картны дүрсүүд (24 хүртэл)
+  const imageSymbols = [
+    'https://img.icons8.com/emoji/96/apple-emoji.png',
+    'https://img.icons8.com/emoji/96/banana-emoji.png',
+    'https://img.icons8.com/emoji/96/cherries-emoji.png',
+    'https://img.icons8.com/emoji/96/grapes-emoji.png',
+    'https://img.icons8.com/emoji/96/watermelon-emoji.png',
+    'https://img.icons8.com/emoji/96/kiwi-fruit-emoji.png',
+    'https://img.icons8.com/emoji/96/pineapple-emoji.png',
+    'https://img.icons8.com/emoji/96/strawberry-emoji.png',
+    'https://img.icons8.com/emoji/96/peach-emoji.png',
+    'https://img.icons8.com/emoji/96/coconut-emoji.png',
+    'https://img.icons8.com/emoji/96/lemon-emoji.png',
+    'https://img.icons8.com/emoji/96/tangerine-emoji.png',
+  ];
+
+  let initialGameSize = 8;  // Анхны тоглоомын картын тоо
+  let baseTime = 60;        // Анхны цаг (сек)
+  let gameSize = initialGameSize;
+  let cardsArray = [];
+  let firstCard = null;
+  let secondCard = null;
+  let lockBoard = false;
+  let matches = 0;
+  let score = 0;
+  let level = 1;
+  let timer;
+  let timeLeft = baseTime;
+  let isPaused = false;
+
+  const game = document.getElementById('game');
+  const levelEl = document.getElementById('level');
+  const scoreEl = document.getElementById('score');
+  const timerEl = document.getElementById('timer');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const usernameInput = document.getElementById('username');
+  const gameSizeSelect = document.getElementById('gameSizeSelect');
+  const correctSound = document.getElementById('correctSound');
+  const wrongSound = document.getElementById('wrongSound');
+  const bgMusic = document.getElementById('bgMusic');
+  const popup = document.getElementById('popup');
+
+  function shuffle(array) {
+    for(let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  function createCard(symbol, index) {
+    const card = document.createElement('div');
+    card.classList.add('card');
+    card.dataset.symbol = symbol;
+    card.dataset.index = index;
+
+    const img = document.createElement('img');
+    img.src = symbol;
+    img.alt = "картны дүрс";
+    card.appendChild(img);
+
+    card.addEventListener('click', flipCard);
+    return card;
+  }
+
+  function generateCards(size) {
+    cardsArray = [];
+    let symbolsNeeded = size / 2;
+    let selectedSymbols = imageSymbols.slice(0, symbolsNeeded);
+    cardsArray = [...selectedSymbols, ...selectedSymbols];
+    shuffle(cardsArray);
+  }
+
+  function setupGame() {
+    game.innerHTML = '';
+    game.style.gridTemplateColumns = (gameSize === 8) ? 'repeat(4, 1fr)'
+                           : (gameSize === 16) ? 'repeat(4, 1fr)'
+                           : 'repeat(6, 1fr)';
+
+    generateCards(gameSize);
+
+    cardsArray.forEach((symbol, i) => {
+      const card = createCard(symbol, i);
+      game.appendChild(card);
+    });
+
+    matches = 0;
+    score = 0;
+    scoreEl.textContent = 'Оноо: 0';
+
+    timeLeft = baseTime - (level - 1) * 5; // түвшин ахих тусам 5 сек багасгана
+    if(timeLeft < 20) timeLeft = 20;       // хамгийн бага цаг 20 сек
+    timerEl.textContent = `Цаг: ${timeLeft} сек`;
+
+    levelEl.textContent = `Түвшин: ${level}`;
+  }
+
+  function startGame() {
+    const playerName = usernameInput.value.trim() || 'Тоглогч';
+    startBtn.disabled = true;
+    pauseBtn.disabled = false;
+    resumeBtn.disabled = true;
+    usernameInput.disabled = true;
+    gameSizeSelect.disabled = true;
+    bgMusic.play();
+
+    setupGame();
+    startTimer();
+  }
+
+  function startTimer() {
+    clearInterval(timer);
+    timer = setInterval(() => {
+      if(!isPaused) {
+        timeLeft--;
+        timerEl.textContent = `Цаг: ${timeLeft} сек`;
+        if(timeLeft <= 0) {
+          clearInterval(timer);
+          endGame(false);
+        }
+      }
+    }, 1000);
+  }
+
+  function flipCard(e) {
+    if(lockBoard) return;
+    const card = e.currentTarget;
+    if(card === firstCard || card.classList.contains('matched')) return;
+
+    card.classList.add('flipped');
+
+    if(!firstCard) {
+      firstCard = card;
+      return;
+    }
+
+    secondCard = card;
+    lockBoard = true;
+
+    checkForMatch();
+  }
+
+  function checkForMatch() {
+    let isMatch = firstCard.dataset.symbol === secondCard.dataset.symbol;
+    if(isMatch) {
+      correctSound.play();
+      firstCard.classList.add('matched');
+      secondCard.classList.add('matched');
+      matches++;
+      score += 10;
+      scoreEl.textContent = `Оноо: ${score}`;
+      resetBoard();
+
+      if(matches === gameSize / 2) {
+        clearInterval(timer);
+        setTimeout(() => {
+          nextLevel();
+        }, 800);
+      }
+    } else {
+      wrongSound.play();
+      score -= 2;
+      if(score < 0) score = 0;
+      scoreEl.textContent = `Оноо: ${score}`;
+      setTimeout(() => {
+        firstCard.classList.remove('flipped');
+        secondCard.classList.remove('flipped');
+        resetBoard();
+      }, 1200);
+    }
+  }
+
+  function resetBoard() {
+    [firstCard, secondCard] = [null, null];
+    lockBoard = false;
+  }
+
+  function nextLevel() {
+    showPopup(`🎉 Түвшин ${level} дууслаа! Дараагийн түвшин рүү шилжиж байна...`);
+    level++;
+    // Түвшин өсөхөд картын тоог тохируулна
+    if(level === 2) {
+      gameSize = 16;
+    } else if(level === 3) {
+      gameSize = 24;
+    } else {
+      // Тоглоом дууссан
+      showPopup(`🎊 Тоглоом дууслаа!\nТаны эцсийн оноо: ${score}\nБаярлалаа тоглосонд!`);
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      resumeBtn.disabled = true;
+      usernameInput.disabled = false;
+      gameSizeSelect.disabled = false;
+      bgMusic.pause();
+      bgMusic.currentTime = 0;
+      level = 1;
+      gameSize = initialGameSize;
+      return;
+    }
+
+    setTimeout(() => {
+      hidePopup();
+      setupGame();
+      startTimer();
+    }, 3000);
+
+  }
+
+  function endGame(won) {
+    if(won) {
+      showPopup(`🎉 Түвшин ${level} амжилттай дууслаа!`);
+    } else {
+      showPopup(`⏰ Цаг дууслаа! Тоглоом дууслаа.\nТаны оноо: ${score}`);
+    }
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    resumeBtn.disabled = true;
+    usernameInput.disabled = false;
+    gameSizeSelect.disabled = false;
+    bgMusic.pause();
+    bgMusic.currentTime = 0;
+  }
+
+  function pauseGame() {
+    isPaused = true;
+    pauseBtn.disabled = true;
+    resumeBtn.disabled = false;
+    bgMusic.pause();
+  }
+
+  function resumeGame() {
+    isPaused = false;
+    pauseBtn.disabled = false;
+    resumeBtn.disabled = true;
+    bgMusic.play();
+  }
+
+  function showPopup(text) {
+    popup.innerHTML = text;
+    popup.classList.add('show');
+  }
+
+  function hidePopup() {
+    popup.classList.remove('show');
+  }
+
+  // Эвентүүд
+  startBtn.addEventListener('click', () => {
+    hidePopup();
+    startGame();
+  });
+  pauseBtn.addEventListener('click', pauseGame);
+  resumeBtn.addEventListener('click', resumeGame);
+
+  // Тоглоомын хэмжээ сонголтыг анхдагч тоглоомын хэмжээнд тохируулна
+  gameSizeSelect.value = initialGameSize;
+
+</script>
+
+</body>
+</html>
